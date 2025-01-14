@@ -1,0 +1,14 @@
+biosppy==1.0.0
+Data_Preparation==0.0.1
+fastai==1.0.61
+matplotlib==3.7.1
+neurokit2==0.2.9
+numpy==1.24.3
+pandas==2.0.2
+PyYAML==6.0.2
+scikit_learn==1.2.2
+scipy==1.9.1
+torchinfo==1.8.0
+tqdm==4.66.5
+wfdb==4.1.2
+wordcloud==1.9.3
