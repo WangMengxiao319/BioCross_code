@@ -5,7 +5,7 @@ This repository contains the source code developed for the study:
 
 **BioCross: A Cross-Modal Framework for Unified Representation of Multi-Modal Biosignals with Heterogeneous Metadata Fusion**
 
-> **Status:** Currently under pre-submission review.
+> **Publish**:Information Fusion 123 (2025) 103302. https://doi.org/10.1016/j.inffus.2025.103302.
 
 ## Overview
 BioCross is a cross-modal framework designed to unify representations of multi-modal biosignals while incorporating heterogeneous metadata. It enables seamless integration of physiological signals such as ECG, PPG, and ABP with additional contextual metadata for enhanced diagnostic and predictive capabilities.
