@@ -1,0 +1,27 @@
+task: 'II_Pleth_ABP' # II_Pleth_ABP, ppg_abp_ecg_mimic_ii
+down_task: 'heart_failure' # downtask_map= {'heart_failure':0,'hypertensive':1,'diabetes':2,'kidney_failure':3}
+input_modal: 'ECG' # PPG # ECG # ABP # all # ECG_PPG
+phase: 'test'
+debug: False
+eval_model: 'best'  # best, final
+
+resample:
+  switch: True
+  num_samples: 512
+train:
+  feats: 80
+  epochs: 50
+  batch_size: 128
+  lr: 1.0e-4
+  optimizer: 'AdamW'   # AdamW, Adam
+  criterion: 'BCEWithLogitsLoss'  # BCEWithLogitsLoss, CrossEntropyLoss
+  split_method: 'inter'
+  encoder: 'TriplemetaVAE_FFT' # TriplemetaVAE_FFT,resnet1d_wang,TripleVAE, TripleVAE_intra, TriplemetaVAE_intra, TriplemetaVAE, TripleAE_inter, TripleVAEpoe_inter,TripleVAEmoe_inter, multiVAE_inter
+
+model:
+  dropout: 0.2
+  latent_dim_conv : 256
+  latent_dim_lstm : 512
+  z_dim: 128
+  merge: 'dropout' # concat, mean, dropout
+  fixed: True

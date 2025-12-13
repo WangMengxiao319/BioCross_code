@@ -1,8 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Time : 2024/6/21 12:14
-# @Author : 王梦潇
-# @File : VAE.py
-
 import torch
 import torch.nn as nn
 from torchinfo import summary
@@ -10,7 +5,7 @@ from torch.nn import functional as F
 # from model.basic_conv1d import AdaptiveConcatPool1d,Flatten
 
 def dfs_freeze(model):
-    '''冻结模型参数( "Depth-First Search"（深度优先搜索）)'''
+    '''Freeze model parameters ( "Depth-First Search")'''
     for name, child in model.named_children():
         for param in child.parameters():
             param.requires_grad = False
@@ -18,13 +13,13 @@ def dfs_freeze(model):
 
 
 def un_dfs_freeze(model):
-    '''解冻模型参数'''
+    '''Unfreeze model parameters'''
     for name, child in model.named_children():
         for param in child.parameters():
             param.requires_grad = True
         un_dfs_freeze(child)
 
-# 定义编码器
+# Define basic building blocks
 def conv_1d(in_planes, out_planes, stride=1, size=3):
     """3x3 convolution with padding"""
     return nn.Conv1d(in_planes, out_planes, kernel_size=size, stride=stride, padding=(size - 1) // 2, bias=False)
@@ -124,8 +119,6 @@ class VaeEncoder(nn.Module):
         return latentFeature
 
 
-# 设计ResDecoder
-# 用上采样加卷积代替了反卷积
 class ResizeConv1d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, scale_factor, mode='nearest'):
         super().__init__()
@@ -227,7 +220,7 @@ class VaeDecoder(nn.Module):
         return out
 
 def product_of_experts(mu_set_, log_var_set_):
-    '''参考：hinton-受限玻尔兹曼机'''
+    '''Reference: Hinton - Restricted Boltzmann Machines'''
     tmp = 0
     for i in range(len(mu_set_)):
         tmp += torch.div(1, torch.exp(log_var_set_[i]))
@@ -244,40 +237,40 @@ def product_of_experts(mu_set_, log_var_set_):
 class ContrastiveLoss(nn.Module):
     def __init__(self, initial_temperature: float = 1.0):
         super(ContrastiveLoss, self).__init__()
-        # 定义可训练的温度参数
+        # Define temperature as a learnable parameter
         self.temperature = nn.Parameter(torch.tensor(initial_temperature))
 
     def forward(self, left: torch.Tensor, right: torch.Tensor, third: torch.Tensor, batch_size: int):
-        # 归一化
+        # Normalize the embeddings
         left_normed = F.normalize(left, p=2, dim=-1)
         right_normed = F.normalize(right, p=2, dim=-1)
         third_normed = F.normalize(third, p=2, dim=-1)
 
-        # 计算对比损失的logits
+        # Calculate logits
         logits_left_right = torch.matmul(left_normed, right_normed.T) * torch.exp(self.temperature)
         logits_left_third = torch.matmul(left_normed, third_normed.T) * torch.exp(self.temperature)
         logits_right_third = torch.matmul(right_normed, third_normed.T) * torch.exp(self.temperature)
 
-        # 计算概率
+        # Calculate probabilities
         prob_left_right = F.softmax(logits_left_right, dim=-1)
         prob_left_third = F.softmax(logits_left_third, dim=-1)
         prob_right_third = F.softmax(logits_right_third, dim=-1)
 
-        # 构造标签矩阵
+        # Create labels
         labels = torch.eye(batch_size, dtype=torch.float32, device=left.device)
 
-        # 计算交叉熵损失
+        # Calculate cross-entropy loss
         loss_left_right = F.cross_entropy(prob_left_right, labels, reduction='sum')
         loss_left_third = F.cross_entropy(prob_left_third, labels, reduction='sum')
         loss_right_third = F.cross_entropy(prob_right_third, labels, reduction='sum')
 
-        # 平均损失
+        # Average the losses
         loss = (loss_left_right + loss_left_third + loss_right_third) / 3
 
         return loss
 
 
-# 定义 VAE
+# Define the TripleVAE model
 class TripleVAE(nn.Module):
 
     def __init__(self,
@@ -292,7 +285,7 @@ class TripleVAE(nn.Module):
                  ) -> None:
         super(TripleVAE, self).__init__()
 
-        # merge方式
+        # merge method
         self.merge = merge
         # self.latent_dim = latent_dim
 
@@ -538,7 +531,7 @@ class TripleVAE(nn.Module):
         z3 = self.reparameterize(mu3, logvar3)
         return z1,z2,z3
     def product_of_experts(self, mu_set_, log_var_set_):
-        '''参考：hinton-受限玻尔兹曼机'''
+        '''Reference: Hinton - Restricted Boltzmann Machines'''
         tmp = 0
         for i in range(len(mu_set_)):
             tmp += torch.div(1, torch.exp(log_var_set_[i]))

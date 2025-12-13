@@ -1,15 +1,4 @@
-# -*- coding: utf-8 -*-
-# @Time : 2024/8/1 21:19
-# @Author : 王梦潇
-# @File : S2_downstream_TripleVAE.py
-# Function:  S1阶段训练好的TripleVAE模型，进行下游任务的训练
-#目前暂时选择四个任务：
-'''
-heart_failure
-hypertensive
-diabetes
-kidney_failure
-'''
+'''this is BioCross-FFT-cross--downstream'''
 import yaml
 import os
 from Dt import load_data_fold, load_data_fold_meta
@@ -26,7 +15,7 @@ from sklearn.metrics import roc_auc_score
 import random
 def seed_torch(seed):
     random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)  # 为了禁止hash随机化，使得实验可复现
+    os.environ['PYTHONHASHSEED'] = str(seed)  
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -34,7 +23,7 @@ def seed_torch(seed):
     torch.backends.cudnn.deterministic = True
 def main(fold=0):
     seed_torch(seed=666)
-    # 数据、标签原始路径
+
     data_dir = 'data/'
 
 
@@ -43,17 +32,17 @@ def main(fold=0):
     task = config['task']
     down_task = config['down_task']
     model_name = config['train']['encoder']
-    split_method = config['train']['split_method']  # 这个是数据集的划分
+    split_method = config['train']['split_method']  
     foldername = f'output/{task}/{split_method}/{down_task}/{model_name}/{config["input_modal"]}/{config["model"]["fixed"]}'
     if not os.path.exists(foldername):
         os.makedirs(foldername)
 
-    # 检测CUDA是否可用，如果可用，使用GPU，否则使用CPU
+
     DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     print('Using device:', DEVICE)
     print('input_modal:', config['input_modal'])
     torch.backends.cudnn.benchmark = True
-    # 数据读取
+
     debug = config['debug']
     resample = config['resample']
     train_loader, val_loader, test_loader, X_shape, Y_shape,train_meta = load_data_fold_meta(data_dir=data_dir, task=task, downtask=down_task,
@@ -64,7 +53,7 @@ def main(fold=0):
                                                                         input_modal=config['input_modal'],
                                                                         split_method=config['train']['split_method'])
 
-    # print("！分隔符01！")
+
     if debug:
         notes = 'debug'
     elif config['phase'] == 'test':
@@ -86,13 +75,13 @@ def main(fold=0):
                                device=DEVICE, z_dim=z_dim, latent_dim_conv=latent_dim_conv, latent_dim_lstm=latent_dim_lstm, in_channels=1, out_channels=1, out_features=input_dim1, merge=merge, dropout=dropout, fixed=fixed)
     model = model.to(DEVICE)
     experiment.config.update({'model_name': model_name})
-    # 训练
+    # Train
     if config['phase'] == 'train':
         wandb.log({"fold": fold})
         train(model, config['train'], train_loader, DEVICE,downstream_cls_num,
               valid_loader=val_loader, valid_epoch_interval=1, foldername=foldername)
 
-    # 评估
+    # Eval
     print('eval best')
     if config['eval_model'] == 'best':
         output_path = foldername + "/model.pth"
@@ -125,7 +114,7 @@ def train(model, config, train_loader, device, num_classes,valid_loader=None, va
     best_valid_score = 0
 
 
-    # 训练
+    # training loop
     for epoch_no in range(config["epochs"]):
         model.train()
         train_loss = 0
@@ -174,7 +163,7 @@ def train(model, config, train_loader, device, num_classes,valid_loader=None, va
                         avg_loss_valid += loss.item()
 
                         pred = torch.sigmoid(output)
-                        # 连接到所有的输出
+
                         output_all = np.concatenate((output_all, pred.cpu().numpy()))
                         target_all = np.concatenate((target_all, y.cpu().numpy()))
 
@@ -197,7 +186,7 @@ def train(model, config, train_loader, device, num_classes,valid_loader=None, va
                     torch.save(model.state_dict(), output_path)
                     print(f"Save model to {output_path}")
                 wandb.log({"best_val_AUROC": best_valid_score})
-            # 计算auroc
+            # calculate val_auroc
             print(f"Epoch {epoch_no} val_AUROC: {val_auroc}")
             wandb.log({"val_AUROC": val_auroc})
 
@@ -222,22 +211,22 @@ def evaluate(model, config,test_loader, device, num_classes, foldername=""):
                     output = model(x)
                     embeddings = model.get_embeddings(x)
                 pred = torch.sigmoid(output)
-                # 连接到所有的输出
+
                 output_all = np.concatenate((output_all, pred.cpu().numpy()))
                 target_all = np.concatenate((target_all, y.cpu().numpy()))
                 embeddings_all = np.concatenate((embeddings_all, embeddings.cpu().numpy()))
 
 
-        # 计算auroc
+        # calculate AUROC
         test_auroc = roc_auc_score(target_all, output_all)
         print(f"Test_AUROC: {test_auroc}")
         wandb.log({"test_AUROC": test_auroc})
 
-        # 向txt中写入结果
+        # save results to a txt file
         with open(foldername + "/result_AUROC.txt", "a") as f:
             f.write(f"{test_auroc}\n")
 
-        # 保存结果
+        # save numpy arrays
         np.save(foldername + "/output_all.npy", output_all)
         np.save(foldername + "/target_all.npy", target_all)
         np.save(foldername + "/embeddings_all.npy", embeddings_all)

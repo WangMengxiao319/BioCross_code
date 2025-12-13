@@ -1,0 +1,28 @@
+task: 'II_Pleth_ABP' # II_Pleth_ABP, ppg_abp_ecg_mimic_ii
+phase: 'test'
+input_modal : 'ECG' # 'ABP', 'PPG'
+eval_model: 'best'  # best, final
+resample:
+  switch: True
+  num_samples: 512
+filtered: False
+train:
+  feats: 80
+  epochs: 100
+  batch_size: 128
+  lr: 1.0e-4
+  optimizer: 'AdamW'   # AdamW, Adam
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  multi_gpus: False
+  warm_up: False
+  train_sample: False
+  split_method: 'intra'
+
+model:
+  latent_dim_conv : 256
+  latent_dim_lstm : 512
+  z_dim: 128
+  merge: 'dropout' # concat, mean, dropout
+  encoder_pretrain_path:  'output/II_Pleth_ABP/base/model.pth'
+  fixed: True

@@ -21,14 +21,12 @@ def meta_embedding(Q_z, meta_data):
            meta_data: list-->object eg.{'time': 1, 'age': 51.0, 'gender': 0.0}
     :return:
     '''
-    # meta_data的tensor转换为numpy
     meta_data_np = np.array(meta_data)
     X = meta_data_np
 
     # metadata-specific matrix P
     P = np.linalg.inv(X.T @ X) @ X.T @ Q_z
-
-    # 转换成tensor
+    
     P = torch.tensor(P).float()
 
     #
@@ -38,7 +36,7 @@ def meta_embedding(Q_z, meta_data):
 
     return P
 def main():
-    # 数据、标签原始路径
+
     data_dir = 'data/'
 
     model_name = 'TriplemetaVAE3_fft_multihead2'
@@ -65,11 +63,11 @@ def main():
     if not os.path.exists(foldername):
         os.makedirs(foldername)
 
-    # 检测CUDA是否可用，如果可用，使用GPU，否则使用CPU
+
     DEVICE = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     print('Using device:', DEVICE)
     torch.backends.cudnn.benchmark = True
-    # 数据读取
+
     debug = config['debug']
     resample = config['resample']
 
@@ -93,7 +91,7 @@ def main():
 
     # wandb.save("/home/lzy/mancy/cross_modal_re/model/DualVAE0.py")
 
-    # 两个模态的特征维度
+
     input_dim1 = X_shape[-1] # ECG 624/512
 
 
@@ -114,34 +112,6 @@ def main():
     model.to(DEVICE)
     model.eval()
 
-    ### 计算meta matrix
-
-    # ecg_embedding = np.empty((0, z_dim))
-    # ppg_embedding = np.empty((0, z_dim))
-    # abp_embedding = np.empty((0, z_dim))
-    #
-    # for (i, data) in tqdm(enumerate(train_loader), total=len(train_loader)):
-    #     signals, label, meta = data
-    #     signals = signals.to(DEVICE)
-    #     ecg = signals[:, [0], :]
-    #     ppg = signals[:, [1], :]
-    #     abp = signals[:, [2], :]
-    #
-    #     z1 = model.pretrain_model.get_embeddings(ecg, known_modality='ECG')
-    #     z2 = model.pretrain_model.get_embeddings(ppg, known_modality='PPG')
-    #     z3 = model.pretrain_model.get_embeddings(abp, known_modality='ABP')
-    #
-    #     ecg_embedding = np.concatenate((ecg_embedding, z1.cpu().detach().numpy()), axis=0)
-    #     ppg_embedding = np.concatenate((ppg_embedding, z2.cpu().detach().numpy()), axis=0)
-    #     abp_embedding = np.concatenate((abp_embedding, z3.cpu().detach().numpy()), axis=0)
-    #
-    # P_ecg = meta_embedding(ecg_embedding, train_meta).to(DEVICE)
-    # P_ppg = meta_embedding(ppg_embedding, train_meta).to(DEVICE)
-    # P_abp = meta_embedding(abp_embedding, train_meta).to(DEVICE)
-    #
-    # print('P_ecg:', P_ecg.shape)
-    # print('P_ppg:', P_ppg.shape)
-    # print('P_abp:', P_abp.shape)
 
     if debug:
         notes = 'debug'
@@ -169,12 +139,12 @@ def main():
     wandb.log({'mertics_recons_modal_ecg':mertics_recons_modal_ecg})
     wandb.log({'mertics_recons_modal_abp':mertics_recons_modal_abp})
 
-    # 保存原始数据
+    # save original data
     print(ori_modal_ecg.shape)
     np.save(foldername + '/all_original_modal_ecg.npy', ori_modal_ecg)
     np.save(foldername + '/all_original_modal_abp.npy', ori_modal1_abp)
 
-    # # 保存重建的数据
+    # save reconstructed data
     print(re_modal_ecg.shape)
     np.save(foldername + '/all_reconstructed_modal_ecg.npy', re_modal_ecg)
     np.save(foldername + '/all_reconstructed_modal_abp.npy', re_modal_abp)
@@ -225,7 +195,7 @@ def train(task,model, config, train_loader, device, valid_loader=None, valid_epo
                     x, y, meta = data
                 elif task == 'ppg_abp_ecg_mimic_ii':
                     x = data
-                # TODO:新的数据集
+
                 data1 = x[:,[0],:]
                 data2 = x[:,[1],:]
                 data3 = x[:,[2],:]
@@ -365,9 +335,9 @@ def evaluate(task,model, test_loader, shots, device, foldername=""):
             output_ppg = output2.cpu().detach().numpy()
             data_ecg = data1.cpu().detach().numpy()
             data_ppg = data2.cpu().detach().numpy()
-            # 画一下效果
+
             if batch_no == 1:
-                # print("在这停顿！")
+                
                 List = 0
                 re_ecg = output_ecg[List]
                 re_ppg = output_ppg[List]
@@ -434,7 +404,7 @@ def evaluate(task,model, test_loader, shots, device, foldername=""):
         wandb.log(ordered_dict)
 
 
-# 定义推断函数
+# Define the inference function
 def infer_other_modality(task,model, data_loader, device,known_modality='ECG',foldername='',P_ecg=None,P_ppg=None,P_abp=None):
     """
     Use one modality to infer the other modality.
@@ -517,7 +487,7 @@ def infer_other_modality(task,model, data_loader, device,known_modality='ECG',fo
                 _,_,output_abp = model.decode(embeddings)
                 ori_modal1 = input3.cpu().detach().numpy()
                 re_modal1 = output_abp.cpu().detach().numpy()
-                # 每个batch、画图
+                # each batch, plot
                 if i == 0:
                     for idx in [0, 10, 20]:
                         ori_abp = ori_modal1[idx]
@@ -530,8 +500,8 @@ def infer_other_modality(task,model, data_loader, device,known_modality='ECG',fo
             else:
                 raise ValueError("known_modality must be 'input1' or 'input2'.")
 
-            ### 计算代理任务的指标
-            # original_modal 维度0是batchsize，维度1是信号长度
+            ### Calculate metrics
+            # original_modal, the dim 0 is batchsize，dim 1 is signal_length
             all_original_modal = np.concatenate((all_original_modal, ori_modal1), axis=0)
             all_reconstructed_modal = np.concatenate((all_reconstructed_modal, re_modal1), axis=0)
             origin_modal = np.squeeze(ori_modal1, axis=1)  # (batchsize, signal_length)
@@ -545,7 +515,7 @@ def infer_other_modality(task,model, data_loader, device,known_modality='ECG',fo
             r_square_total += np.mean(metrics.R_suqared(origin_modal, reconstructed_modal_squeeze))
             # snr_noise += np.mean(metrics.SNR(origin_modal, reconstructed_modal))
 
-        # 返回per batch, per sample, per point的指标
+        # return metrics
         metrics_output = {
             "mse": mse_total / len(data_loader),
             "rmse": rmse_total / len(data_loader),
@@ -565,7 +535,7 @@ def infer_get_embeddings(task,model, data_loader, device,known_modality='ECG',fo
     get embeddings of input modalities
     '''
     model.eval()  # Set the model to evaluation mode
-    # 存储所有的embedding
+    # save embeddings
     z_all = []
     with torch.no_grad():  # Disable gradient computation
 
@@ -574,9 +544,7 @@ def infer_get_embeddings(task,model, data_loader, device,known_modality='ECG',fo
                 x, y, meta = data
             elif task == 'ppg_abp_ecg_mimic_ii':
                 x = data
-            # # 旧的数据集
-            # input1, input2 = x.to(device), y.to(device)
-            # TODO:新的数据集
+
             data1 = x[:, [0], :]
             data2 = x[:, [1], :]
             data3 = x[:, [2], :]
