@@ -11,14 +11,14 @@ This repository contains the source code developed for the study:
 BioCross is a cross-modal framework designed to unify representations of multi-modal biosignals while incorporating heterogeneous metadata. It enables seamless integration of physiological signals such as ECG, PPG, and ABP with additional contextual metadata for enhanced diagnostic and predictive capabilities.
 ![framework.png](img%2Fframework.png)
 
-## Features
+### Features
 - A mask-merge strategy to Variational Autoencoders architecture to align various modalities in a Gaussian latent space, which facilitates the effective representation of multi-sensor physiological data.
 
 - Utilize the frequency-based attention mechanism and cross-attention to fuse embeddings of biosignals and metadata, includes circadian rhythms, enhancing the interaction of heterogeneous data.
 
 - The product-of-experts technique to handle missing waveform inputs by enabling composable biosignal inputs. The output can either be certain modality generation or disease prediction via distinct decoders.
 
-## Repository Structure
+### Repository Structure
 ```plaintext
 ├── model/                 # Model architectures and configurations
 ├── utils/                 # Functions for data handling and model utilities
@@ -33,6 +33,8 @@ BioCross is a cross-modal framework designed to unify representations of multi-m
 ├── README.md              # Repository documentation (this file)
 ```
 
+## Usage
+For inference, load the [weights of BioCross](https://1drv.ms/f/c/664a0e01dd37c3c0/IgATHsfYHqD_QIh8HsGBdbbWAWaenhsQKntZbIezV6vH2ho?e=jDMJjG). This gives you a well-initialized model that can be fine-tuned for your own dataset or task.
 
 
 ## Mandatory Citation
