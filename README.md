@@ -46,7 +46,6 @@ checkpoints/
 └── II_Pleth_ABP/
     ├── model.pth                 # Cross-modal BioCross model
     ├── heart_failure/model.pth   # Heart-failure classification model
-    └── base/model.pth            # Optional base VAE weights for training (not bundled)
 ```
 
 Run commands from the repository root. Single-sample and batch inference load
