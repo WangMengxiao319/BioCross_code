@@ -1,4 +1,100 @@
-"""BioCross 单样本推理：II_Pleth_ABP / hwd，并保存重建波形图。"""
+"""BioCross 单样本推理：II_Pleth_ABP / hwd，并保存重建波形图。
+
+模型使用范围（当前默认权重）：
+    - 权重由MIMIC-IV-waveform数据集训练得到。
+    - 本脚本支持 PPG → ECG / ABP / 两者，以及 ECG + PPG → ABP。
+    - data/II_Pleth_ABP 为 MIMIC-IV-waveform 的测试集，包含同步的 ECG、PPG、ABP 波形及 metadata。
+    - data/hwd 为相机 rPPG 的跨来源输入适配，可生成 ECG、ABP；该数据没有同步真值。
+      输出心率、血压是从模型生成波形提取的估计值，适配不等于已验证的泛化性能。
+
+输入输出的时长与采样规格：
+    - 当前权重按每段 10 秒、每通道 512 点训练，模型端等效采样率为 51.2 Hz。
+      原训练 merged_data 每通道 624 点，经 Dt.py 重采样为 512 点后进入模型。
+    - II_Pleth_ABP：Test_data.npy 应为 (N, 3, 512)，通道顺序为 ECG、PPG、ABP。
+      本脚本直接读取已处理的片段，不会再次重采样此文件；对应 metadata 为 (N, 4)。
+    - hwd：wave_30hz.csv 的 rPPG 为 30 Hz；默认截取 10 秒（约 300 点），
+      再重采样为 512 点输入模型。--start 相对于 CSV 第一条波形的时间。
+    - 模型输入张量为 (1, 1, 512)（PPG）或 (1, 2, 512)（ECG、PPG）。
+      每个重建模态单独保存为 (1, 1, 512) 的 .npy，默认同为 10 秒、51.2 Hz。
+    - 部署现有权重时使用 --duration 10。修改 hwd 的 duration 仍会重采样到 512 点，
+      此时等效采样率为 512 / duration Hz，时间尺度已偏离原训练设置，需要另行验证。
+      对 II_Pleth_ABP，duration 仅影响时间轴及 HR/BP 提取所用的采样率，不会截取片段。
+      更改配置中的 num_samples 需要匹配相应权重，不能直接改变当前权重的输出长度。
+
+幅值与 metadata：
+    - 训练 ECG、PPG 保留源数据幅值，没有逐段 Min-Max / Z-score；ECG 源单位为 mV。
+      训练 ABP 除以 100；本脚本将重建 ABP 乘回 100，以 mmHg 保存并提取血压。
+      hwd 的 rPPG 另做逐片段 Min-Max 到 [0, 1]，这是新增的输入适配步骤。
+    - metadata 顺序为 [时间 sin, 时间 cos, 归一化年龄, 性别]，时间取本地整数小时。
+      原训练年龄范围为 26–91 岁；本脚本将越界年龄限制在边界，男 1 / 女 0。
+
+参数说明（命令在项目根目录执行，相对路径以当前工作目录为基准）：
+    --task / --dataset {II_Pleth_ABP,hwd}
+        数据集名称，默认读取配置文件中的 task。
+    --config PATH
+        模型结构及重采样配置，默认 config/TriplemetaVAE3.yaml，需与权重匹配。
+    --data-dir DIR
+        数据根目录，默认 data；脚本读取 DIR/<task>/ 下的数据。
+    --checkpoint PATH
+        完整 BioCross 模型权重。默认 checkpoints/<task>/model.pth；
+        hwd 则使用 checkpoints/<配置中的 task>/model.pth。
+    --sample-index INT
+        从 0 开始的样本编号，默认 0。II_Pleth_ABP 对应 Test_data.npy 的行；
+        hwd 对应按目录名排序的有效记录，提供 --record 时优先使用指定记录。
+    --record NAME
+        仅 hwd 使用，指定记录子目录名，如 20261116_211644；默认不指定。
+    --start SECONDS
+        仅 hwd 使用，窗口起点相对于 CSV 第一条波形，默认 0 秒。
+    --duration SECONDS
+        窗口时长，默认 10 秒，必须大于 0。hwd 按此时长截取；
+        II_Pleth_ABP 不重新截取，仅据此设置时间轴及 HR/BP 提取采样率。
+    --ppg-column {raw,filtered}
+        仅 hwd 使用，读取 CSV 的哪一列作为 rPPG，默认 filtered。
+    --known-modality {PPG,ECG_PPG}
+        模型输入，默认 PPG；ECG_PPG 表示依次输入 ECG、PPG。hwd 仅支持 PPG。
+    --target-modality {ECG,ABP,both}
+        重建目标；both 同时输出 ECG、ABP。未指定时，PPG 输入默认输出 ECG，
+        ECG_PPG 输入默认输出 ABP。输出含 ECG 时提取心率，含 ABP 时提取血压。
+    --age YEARS / --gender {0,1}
+        hwd 的实际年龄（岁）和性别（女 0 / 男 1），默认不指定；
+        未提供 --meta 时，hwd 必须同时提供二者。II_Pleth_ABP 自动读取 metadata。
+    --age-range MIN MAX
+        年龄归一化及截断范围，默认 26 91，满足 0 <= MIN < MAX；应匹配训练预处理。
+    --meta TIME_SIN TIME_COS AGE_NORM SEX
+        可选，直接覆盖 4 个已编码的 metadata 值，优先于自动读取/生成；
+        AGE_NORM 仍会限制在 [0, 1]。原始年龄需先按训练范围编码后传入此参数。
+    --output-dir DIR
+        输出目录，默认 output/<task>/single_sample/。
+    --show
+        可选开关，默认关闭；加上后保存图片并弹窗显示，关闭窗口后继续。
+    -h / --help
+        显示本说明和命令行参数帮助后退出。
+
+使用示例：
+    # 在项目根目录执行；sample-index 从 0 开始。
+    # II_Pleth_ABP：输入 PPG，同时重建 ECG 和 ABP，自动读取 metadata。
+    python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --target-modality both
+
+    # 仅重建 ECG；仅重建 ABP 时将 ECG 改为 ABP。
+    python infer_cross_modal.py --task II_Pleth_ABP --sample-index 10 --target-modality ECG
+
+    # 输入 ECG + PPG，重建 ABP。
+    python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --known-modality ECG_PPG --target-modality ABP
+
+    # hwd：时间自动读取 summary.json，手动输入年龄和性别（男 1 / 女 0）。
+    # 年龄自动限制在训练范围 26–91 岁，图中同时标注输入年龄和模型使用年龄。
+    python infer_cross_modal.py --task hwd --record 20261116_211644 --target-modality both --age 22 --gender 1
+
+    # hwd：从波形起点后第 5 秒开始截取 10 秒，使用 raw 列。
+    python infer_cross_modal.py --task hwd --record 20261116_211644 --start 5 --duration 10 --ppg-column raw --target-modality both --age 35 --gender 0
+
+    # 自定义权重和输出目录，并弹窗显示图片。
+    python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --target-modality both --checkpoint checkpoints/II_Pleth_ABP/model.pth --output-dir output/demo --show
+
+默认权重：checkpoints/II_Pleth_ABP/model.pth（hwd 复用此权重）。
+默认输出：output/<task>/single_sample/，包含重建 .npy、波形 .png 和合并统计 *_stats.json。
+统计中 hr 为心率及差值，bp 为 SBP/DBP 及误差；hwd 没有真实 ECG/ABP，不能计算相应真值误差。
+"""
 
 import argparse
 from datetime import datetime, timedelta
@@ -317,7 +413,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--task', '--dataset', choices=['II_Pleth_ABP', 'hwd'], help='默认使用配置中的 task')
     parser.add_argument('--config', default='config/TriplemetaVAE3.yaml')
     parser.add_argument('--data-dir', default='data')
@@ -325,7 +421,7 @@ if __name__ == '__main__':
     parser.add_argument('--sample-index', type=int, default=0, help='样本编号；hwd 为按目录名排序的记录编号')
     parser.add_argument('--record', help='hwd 记录目录名，例如 20261116_211644')
     parser.add_argument('--start', type=float, default=0., help='hwd 截取起点，单位秒，相对于 CSV 起点')
-    parser.add_argument('--duration', type=float, default=10., help='片段时长（秒）；II_Pleth_ABP 仅用于绘图时间轴')
+    parser.add_argument('--duration', type=float, default=10., help='片段时长（秒）；II_Pleth_ABP 用于时间轴和 HR/BP 采样率，不重新截取')
     parser.add_argument('--ppg-column', choices=['raw', 'filtered'], default='filtered')
     parser.add_argument('--known-modality', choices=['PPG', 'ECG_PPG'], default='PPG')
     parser.add_argument('--target-modality', choices=['ECG', 'ABP', 'both'],
