@@ -4,3 +4,5 @@
 __pycache__/
 output/
 data/
+# Keep local model weights out of Git
+checkpoints/
