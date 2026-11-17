@@ -1,27 +1,13 @@
+"""推理所用波形评估指标。"""
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from fastdtw import fastdtw
-import pywt
-from tqdm import tqdm
-
-def SSD(y, y_pred):
-    '''
-    计算信号的平方和误差 (Sum of Squared Differences, SSD)
-
-    解释:
-    SSD值越低越好，表示预测信号与原始信号的差异越小。
-    shape: (batch, signal_length)
-    '''
-
-    return np.sum(np.square(y - y_pred), axis=1)  # axis 1 is the signal dimension
 
 def MSE(y, y_pred):
     '''
     计算信号的均方误差 (Mean Squared Error, MSE)
     shape: (batch, signal_length)
     '''
-    return np.mean(np.square(y - y_pred),axis=1)  # axis 1 is the signal dimension
-
+    return np.mean(np.square(y - y_pred),axis=1)
 
 def RMSE(y, y_pred):
     '''
@@ -37,8 +23,7 @@ def MAD(y, y_pred):
     解释:
     MAD值越低越好，表示预测信号与原始信号的最大偏差越小。
     """
-    return np.max(np.abs(y - y_pred), axis=1)  # axis 1 is the signal dimension
-
+    return np.max(np.abs(y - y_pred), axis=1)
 
 def PRD(y, y_pred):
     """
@@ -53,25 +38,6 @@ def PRD(y, y_pred):
     PRD = np.sqrt(N / D) * 100
 
     return PRD
-
-def PRD_formal(y, y_pred):
-    """
-    计算信号的百分均方根差 (Percentage Root Mean Square Difference, PRD)
-    shape: (batch, signal_length)
-    解释:
-    PRD值越低越好，表示预测信号与原始信号的相对差异越小。
-    """
-    # 判断y的维度
-    if len(y.shape) == 1:
-        y = y.reshape(1, -1)
-        y_pred = y_pred.reshape(1, -1)
-    N = np.sum(np.square(y_pred - y), axis=1)
-    D = np.sum(np.square(y), axis=1)
-
-    PRD = np.sqrt(N / D) * 100
-
-    return PRD
-
 
 def COS_SIM(y, y_pred):
     """
@@ -126,117 +92,3 @@ def SNR(y1, y2):
     SNR = 10 * np.log10(N / D)
 
     return SNR
-
-
-def SNR_improvement(y_in, y_out, y_clean):
-    """
-    计算信号的信噪比改善 (SNR Improvement)
-
-    参数:
-    y_in: 输入信号
-    y_out: 输出信号
-    y_clean: 干净信号
-    shape: (batch, signal_length)
-    返回:
-    信噪比改善值
-
-    解释:
-    SNR改善值越高越好，表示信号处理后的信噪比提升越大。
-    """
-    return SNR(y_clean, y_out) - SNR(y_clean, y_in)
-
-
-
-def DTW(y, y_pred):
-    """
-    计算信号的动态时间规整 (Dynamic Time Warping, DTW)
-
-    参数:
-    y: 原始信号
-    y_pred: 预测信号
-    shape: (batch, signal_length)
-    返回:
-    每个信号的DTW值
-
-    解释:
-    DTW值越低越好，表示预测信号与原始信号的相似度越高。
-    """
-
-    dtw_scores = []
-    for i in range(len(y)):
-        distance, _ = fastdtw(y[i], y_pred[i])
-        dtw_scores.append(distance)
-
-    return np.array(dtw_scores)
-def MSEWPRD_weight(y_true):
-    # DWT decomposition
-    wavelet = 'db8'
-    # 执行单级离散小波变换
-    coeffs = pywt.wavedec(y_true, wavelet, level=5)  # level+1, 其中0是近似系数，1-5是细节系数
-
-    # multiscale entropy information measure
-    # 1. The mean wavelet subband energy
-    E = np.zeros(len(coeffs))
-    for k in range(len(coeffs)):
-        E[k] = np.mean(np.square(coeffs[k]))
-    E_sum = np.sum(E)
-    E_normalized = E / E_sum
-    # 2.multiscale entropy information measure
-    H = np.zeros(len(coeffs))
-    for k in range(len(coeffs)):
-        H[k] = -E_normalized[k] * np.log(E_normalized[k])
-    return H
-def MSEWPRD(y,y_pred):
-    '''Multiscale Entropy-Based Weighted PRD Measure
-        shape: (batch, signal_length)
-    '''
-    MSEWPRD_scores = []
-    for i in tqdm(range(len(y))):
-        # y_true = np.squeeze(y[i], axis=0)
-        # y_hat = np.squeeze(y_pred[i], axis=0)
-        y_true = y[i]
-        y_hat = y_pred[i]
-        # the weight for the th approximation band
-        H = MSEWPRD_weight(y_true)
-        # DWT coefficients
-        coeffs_true = pywt.wavedec(y_true, 'db8', level=5)
-        coeffs_hat = pywt.wavedec(y_hat, 'db8', level=5)
-
-        # PRD
-        MSEWPRD_score = np.sum([H[k] * PRD_formal(coeffs_true[k], coeffs_hat[k]) for k in range(6)])
-        MSEWPRD_scores.append(MSEWPRD_score)
-
-    return np.array(MSEWPRD_scores)
-
-
-def mertrics_all(y,y_pred):
-    """
-    计算所有的指标
-    """
-    metrics = {}
-    metrics_mean = {}
-    metrics['SSD'] = SSD(y, y_pred)
-    metrics['MSE'] = MSE(y, y_pred)
-    metrics['RMSE'] = RMSE(y, y_pred)
-    metrics['MAD'] = MAD(y, y_pred)
-    metrics['PRD'] = PRD(y, y_pred)
-    metrics['COS_SIM'] = COS_SIM(y, y_pred)
-    metrics['R_suqared'] = R_suqared(y, y_pred)
-    metrics['SNR'] = SNR(y, y_pred)
-    metrics['DTW'] = DTW(y, y_pred)
-    metrics['MSEWPRD'] = MSEWPRD(y, y_pred)
-
-    # 每个指标都求平均值
-    for key in metrics.keys():
-        metrics_mean[key] = np.mean(metrics[key])
-    return metrics_mean
-
-
-
-
-if __name__ == '__main__':
-    y_true = np.load('../data/II_Pleth_new/all_original_modal1.npy')
-    y_pred = np.load('../output/II_Pleth_new/DualVAE0_dropout_contrastive/all_reconstructed_modal1.npy')
-    #
-    score = MSEWPRD(y_true,y_pred)
-    print(score)

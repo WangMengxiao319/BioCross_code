@@ -4,5 +4,10 @@
 __pycache__/
 output/
 data/
-# Keep local model weights out of Git
-checkpoints/
+.venv/
+
+.DS_Store
+
+checkpoints/**/*.pth
+
+checkpoints/**/*.pt

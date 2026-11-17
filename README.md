@@ -1,80 +1,42 @@
+# BioCross 推理部署分支
 
-# BioCross Repository
+`hwd_deploy` 仅保留单样本推理；训练和下游分类代码见 `main`。
 
-This repository contains the source code developed for the study:
+## 最小模块
 
-**BioCross: A Cross-Modal Framework for Unified Representation of Multi-Modal Biosignals with Heterogeneous Metadata Fusion**
-
-> **Publish**:Information Fusion 123 (2025) 103302. https://doi.org/10.1016/j.inffus.2025.103302.
-
-## Overview
-BioCross is a cross-modal framework designed to unify representations of multi-modal biosignals while incorporating heterogeneous metadata. It enables seamless integration of physiological signals such as ECG, PPG, and ABP with additional contextual metadata for enhanced diagnostic and predictive capabilities.
-![framework.png](img%2Fframework.png)
-
-### Features
-- A mask-merge strategy to Variational Autoencoders architecture to align various modalities in a Gaussian latent space, which facilitates the effective representation of multi-sensor physiological data.
-
-- Utilize the frequency-based attention mechanism and cross-attention to fuse embeddings of biosignals and metadata, includes circadian rhythms, enhancing the interaction of heterogeneous data.
-
-- The product-of-experts technique to handle missing waveform inputs by enabling composable biosignal inputs. The output can either be certain modality generation or disease prediction via distinct decoders.
-
-### Repository Structure
-```plaintext
-├── model/                 # Model architectures and configurations
-├── utils/                 # Functions for data handling and model utilities
-├── config/                # Config files
-├── checkpoints/           # Model weights, organized by dataset and task
-├── output/                # Generated waveforms, figures, metrics and statistics
-├── data/                  # data folder
-├── requirements.txt       # Python dependencies
-├── Dt.py                  # Data processing script
-├── S1_main_BioCross.py    # Main script for training and evaluation
-├── S2_downstream_BioCross.py    # Downstream task training script
-├── test_cross_modal.py    # Test script for cross-modal experiment
-├── infer_cross_modal.py   # Single-sample inference and visualization
-├── test_downstream.py     # Test script for downstream task
-├── README.md              # Repository documentation (this file)
+```text
+infer_cross_modal.py                # 推理、绘图、合并统计
+model/BioCross.py                   # BioCross 网络
+model/BioCross_base.py              # 基础编码器、解码器
+utils/metrics.py                   # 波形误差
+utils/phenotype.py                 # 心率和血压
+config/TriplemetaVAE3.yaml          # 推理配置
+checkpoints/II_Pleth_ABP/model.pth  # 完整模型权重
 ```
 
-## Usage
-For inference, load the [weights of BioCross](https://1drv.ms/f/c/664a0e01dd37c3c0/IgATHsfYHqD_QIh8HsGBdbbWAWaenhsQKntZbIezV6vH2ho?e=jDMJjG). This gives you a well-initialized model that can be fine-tuned for your own dataset or task.
+## 服务器运行
 
-Store downloaded weights separately from generated results:
-
-```plaintext
-checkpoints/
-└── II_Pleth_ABP/
-    ├── model.pth                 # Cross-modal BioCross model
-    ├── heart_failure/model.pth   # Heart-failure classification model
-```
-
-Run commands from the repository root. Single-sample and batch inference load
-`checkpoints/II_Pleth_ABP/model.pth` by default. The `hwd` dataset uses the same
-BioCross weights, with results saved under `output/hwd/single_sample/`.
-Use `--checkpoint /path/to/model.pth` to override the single-sample model path.
+建议 Python 3.10+，在仓库根目录执行。GPU 环境应先安装与服务器 CUDA 匹配的 PyTorch。
 
 ```bash
-python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --target-modality both
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+export MPLBACKEND=Agg
+
 python infer_cross_modal.py --task hwd --record 20261116_211644 --target-modality both --age 22 --gender 1
+python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --target-modality both
+python infer_cross_modal.py --help
 ```
 
-Training saves experiment weights under `checkpoints/` using the same relative
-experiment directory as `output/`; figures and metrics stay under `output/`.
-To deploy a trained cross-modal experiment, pass its `model.pth` using
-`--checkpoint`, or copy it to the default `checkpoints/II_Pleth_ABP/model.pth`.
-The training configuration's `encoder_pretrain_path` refers to the base VAE
-checkpoint, which is separate from the full BioCross model.
+hwd 输入为 `data/hwd/<record>/wave_30hz.csv` 和 `summary.json`；时间从 JSON 读取，年龄和性别由参数提供。II_Pleth_ABP 需 `data/II_Pleth_ABP/Test_data.npy` (N,3,512) 和 `Test_meta.npy` (N,4)。
 
+模型使用 10 秒、512 点窗口，模型端采样率为 51.2 Hz。hwd 的 30 Hz rPPG 会重采样。默认年龄范围 26–91 岁，越界自动截断；男 1、女 0。hwd 没有真实 ECG/ABP 参考，输出指标来自模型生成波形。
 
-## Mandatory Citation
-If you use this code or dataset in your research, please cite the following paper:
-```bibtex
-@article{WANG2025103302,
-title = {BioCross: A cross-modal framework for unified representation of multi-modal biosignals with heterogeneous metadata fusion},
-journal = {Information Fusion},
-volume = {123},
-pages = {103302},
-year = {2025},
-doi = {https://doi.org/10.1016/j.inffus.2025.103302},
-author = {Mengxiao Wang and Zhiyuan Li and Yuanyuan Tian and Xiaoyang Wei and Yanrui Jin and Chengliang Liu},
-}
+可用 `--checkpoint` 指定权重，`--output-dir` 指定输出目录。默认结果位于 `output/<task>/single_sample/`：重建 `.npy`、带 metadata 和误差标注的 `.png`、合并 HR/BP 的 `*_stats.json`。完整参数说明与示例见脚本顶部。
+
+本分支保留现有权重所需的模型参数结构，不需要训练数据或下游分类权重。
+
+权重下载与放置说明见 [checkpoints/README.md](checkpoints/README.md)。
+
+研究引用：BioCross, Information Fusion 123 (2025), 103302. https://doi.org/10.1016/j.inffus.2025.103302

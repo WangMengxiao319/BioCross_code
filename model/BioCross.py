@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torchinfo import summary
 from torch.nn import functional as F
 from model.BioCross_base import TripleVAE
 # from model.basic_conv1d import AdaptiveConcatPool1d,Flatten
@@ -657,21 +656,4 @@ class TripleVAE_cmeta3_fft(nn.Module):
             tmp += torch.div(1., torch.exp(log_var_set_[i])) * mu_set_[i]
         poe_mu = poe_var * tmp
         return poe_mu, poe_log_var
-
-if __name__== '__main__':
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = TripleVAE_cmeta3_fft(pretrain_model_path='',device=device,z_dim=128, latent_dim_conv=256, latent_dim_lstm=512,in_channels=1, out_channels=1, out_features=512, merge='dropout')
-    # # # pretrained_model_path = 'C:\mancy\experiment\cross_modal_re\output\II_Pleth\DualVAE0_dropout\model.pth'
-    # # # model = DualVAE_downstream2(pretrain_model_path=pretrained_model_path, downstream_cls_num=1, known_modality='PPG', device=device, z_dim=128, latent_dim_conv=256, latent_dim_lstm=512, in_channels=1, out_channels=1, out_features=512, merge='dropout', dropout=0.2, fixed=False)
-    # # # model = VaeEncoder(in_channels=1, latent_dim_conv=256, latent_dim_lstm=512)
-    batchisze = 128
-    print('parameter number is {}'.format(sum(p.numel() for p in model.parameters())))
-    summary(model, input_size=[(batchisze, 1, 512), (batchisze, 1, 512),(batchisze, 1, 512),(batchisze, 4)])
-    # summary(model,input_size=(batchisze, 1, 512))
-    # summary(model, input_size=[(batchisze, 1, 1024),(batchisze,1, 4)])
-
-    # fft_module = FreqFilter_multihead(length=1024)
-    # x = torch.randn(2,1,1024)
-    # result = fft_module(x)
-    # print(result.shape)
 

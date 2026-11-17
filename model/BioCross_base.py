@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torchinfo import summary
 from torch.nn import functional as F
 # from model.basic_conv1d import AdaptiveConcatPool1d,Flatten
 
