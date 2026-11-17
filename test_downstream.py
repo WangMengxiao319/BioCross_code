@@ -107,11 +107,11 @@ def main(fold=0):
 
     # Evaluation
     print('eval best')
-    output_path = foldername + "/model.pth"
+    output_path = f'checkpoints/{task}/{down_task}/model.pth'
     model.load_state_dict(torch.load(output_path, map_location=DEVICE))
     
     # Save as a 16-bit .pth file
-    # torch.save(model.state_dict(), foldername+"/model_fp16.pth")  # Save weights
+    # torch.save(model.state_dict(), f'checkpoints/{task}/{down_task}/model_fp16.pth')
 
     evaluate(model, config['train'], test_loader,  DEVICE, downstream_cls_num, foldername=foldername)
 

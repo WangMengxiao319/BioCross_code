@@ -34,6 +34,7 @@ def main(fold=0):
     model_name = config['train']['encoder']
     split_method = config['train']['split_method']  
     foldername = f'output/{task}/{split_method}/{down_task}/{model_name}/{config["input_modal"]}/{config["model"]["fixed"]}'
+    checkpoint_dir = foldername.replace('output/', 'checkpoints/', 1)
     if not os.path.exists(foldername):
         os.makedirs(foldername)
 
@@ -84,9 +85,9 @@ def main(fold=0):
     # Eval
     print('eval best')
     if config['eval_model'] == 'best':
-        output_path = foldername + "/model.pth"
+        output_path = os.path.join(checkpoint_dir, 'model.pth')
     else:
-        output_path = foldername + "/final.pth"
+        output_path = os.path.join(checkpoint_dir, 'final.pth')
     model.load_state_dict(torch.load(output_path, map_location=DEVICE))
 
     evaluate(model, config['train'], test_loader,  DEVICE, downstream_cls_num, foldername=foldername)
@@ -103,8 +104,10 @@ def train(model, config, train_loader, device, num_classes,valid_loader=None, va
         criterion = torch.nn.BCEWithLogitsLoss()
 
     if foldername != "":
-        output_path = foldername + "/model.pth"
-        final_path = foldername + "/final.pth"
+        checkpoint_dir = foldername.replace('output/', 'checkpoints/', 1)
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        output_path = os.path.join(checkpoint_dir, 'model.pth')
+        final_path = os.path.join(checkpoint_dir, 'final.pth')
 
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(

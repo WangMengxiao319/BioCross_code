@@ -43,7 +43,7 @@ class TripleVAE_downstream(nn.Module):
                  ) -> None:
         super(TripleVAE_downstream, self).__init__()
         if encoder == 'TriplemetaVAE_FFT':
-            self.pretrain_model_path = './output/II_Pleth_ABP/model.pth'
+            self.pretrain_model_path = './checkpoints/II_Pleth_ABP/model.pth'
             self.cross_encoders = TripleVAE_cmeta3_fft(device=device,z_dim =z_dim,latent_dim_conv=latent_dim_conv,latent_dim_lstm=latent_dim_lstm,
                                                        in_channels=in_channels,out_channels=out_channels,out_features=out_features,
                                                        merge=merge,fixed=fixed)

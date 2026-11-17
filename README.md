@@ -23,18 +23,48 @@ BioCross is a cross-modal framework designed to unify representations of multi-m
 ├── model/                 # Model architectures and configurations
 ├── utils/                 # Functions for data handling and model utilities
 ├── config/                # Config files
+├── checkpoints/           # Model weights, organized by dataset and task
+├── output/                # Generated waveforms, figures, metrics and statistics
 ├── data/                  # data folder
 ├── requirements.txt       # Python dependencies
 ├── Dt.py                  # Data processing script
 ├── S1_main_BioCross.py    # Main script for training and evaluation
 ├── S2_downstream_BioCross.py    # Downstream task training script
 ├── test_cross_modal.py    # Test script for cross-modal experiment
+├── infer_cross_modal.py   # Single-sample inference and visualization
 ├── test_downstream.py     # Test script for downstream task
 ├── README.md              # Repository documentation (this file)
 ```
 
 ## Usage
 For inference, load the [weights of BioCross](https://1drv.ms/f/c/664a0e01dd37c3c0/IgATHsfYHqD_QIh8HsGBdbbWAWaenhsQKntZbIezV6vH2ho?e=jDMJjG). This gives you a well-initialized model that can be fine-tuned for your own dataset or task.
+
+Store downloaded weights separately from generated results:
+
+```plaintext
+checkpoints/
+└── II_Pleth_ABP/
+    ├── model.pth                 # Cross-modal BioCross model
+    ├── heart_failure/model.pth   # Heart-failure classification model
+    └── base/model.pth            # Optional base VAE weights for training (not bundled)
+```
+
+Run commands from the repository root. Single-sample and batch inference load
+`checkpoints/II_Pleth_ABP/model.pth` by default. The `hwd` dataset uses the same
+BioCross weights, with results saved under `output/hwd/single_sample/`.
+Use `--checkpoint /path/to/model.pth` to override the single-sample model path.
+
+```bash
+python infer_cross_modal.py --task II_Pleth_ABP --sample-index 0 --target-modality both
+python infer_cross_modal.py --task hwd --record 20261116_211644 --target-modality both --age 22 --gender 1
+```
+
+Training saves experiment weights under `checkpoints/` using the same relative
+experiment directory as `output/`; figures and metrics stay under `output/`.
+To deploy a trained cross-modal experiment, pass its `model.pth` using
+`--checkpoint`, or copy it to the default `checkpoints/II_Pleth_ABP/model.pth`.
+The training configuration's `encoder_pretrain_path` refers to the base VAE
+checkpoint, which is separate from the full BioCross model.
 
 
 ## Mandatory Citation

@@ -60,6 +60,7 @@ def main():
         model_name = f'{model_name}_filtered'
 
     foldername = f'output/{task}/{model_name}'
+    checkpoint_dir = f'checkpoints/{task}/{model_name}'
     if not os.path.exists(foldername):
         os.makedirs(foldername)
 
@@ -130,7 +131,7 @@ def main():
     # evaluate(task,model, val_loader, 1, DEVICE, foldername=foldername)
 
     print('eval best')
-    output_path = foldername + "/model.pth"
+    output_path = os.path.join(checkpoint_dir, 'model.pth')
     model.load_state_dict(torch.load(output_path,map_location=DEVICE))
 
     mertics_recons_modal_ecg,ori_modal_ecg,re_modal_ecg = infer_other_modality(task,model, test_loader,DEVICE, known_modality='PPG',foldername=foldername)
@@ -156,7 +157,7 @@ def main():
 
     # don't use before final model is determined
     # print('eval final')
-    # output_path = foldername + "/final.pth"
+    # output_path = os.path.join(checkpoint_dir, 'final.pth')
     # model.load_state_dict(torch.load(output_path))
     # evaluate(model, test_loader, 1, DEVICE, foldername=foldername)
 
@@ -167,8 +168,10 @@ def train(task,model, config, train_loader, device, valid_loader=None, valid_epo
         optimizer = AdamW(model.parameters(), lr=config["lr"])
 
     if foldername != "":
-        output_path = foldername + "/model.pth"
-        final_path = foldername + "/final.pth"
+        checkpoint_dir = foldername.replace('output/', 'checkpoints/', 1)
+        os.makedirs(checkpoint_dir, exist_ok=True)
+        output_path = os.path.join(checkpoint_dir, 'model.pth')
+        final_path = os.path.join(checkpoint_dir, 'final.pth')
 
 
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
